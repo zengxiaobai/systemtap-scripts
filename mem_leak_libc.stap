@@ -1,0 +1,118 @@
+global ptr2bt
+global ptr2size
+global bt_stats
+/* only single thread for squid? For $usize accessed incorrect in return probe */
+global entrysize_malloc
+global entrysize_calloc
+global entrysize_realloc
+global oldptr_realloc
+
+probe begin {
+    printf("Start tracing. Press Ctrl+C to complete.\n")
+}
+
+probe process("/lib64/libc.so.6").function("malloc") {
+         if (pid() == target()) {
+                   entrysize_malloc = $bytes
+         }
+}
+
+ 
+
+probe process("/lib64/libc.so.6").function("malloc").return {
+         if (pid() == target()) {
+                   ptr = $return
+                   bt = sprint_ubacktrace()
+                   ptr2bt[ptr] = bt
+                   ptr2size[ptr] = entrysize_malloc
+                   bt_stats[bt] <<< entrysize_malloc
+         }
+}
+
+probe process("/lib64/libc.so.6").function("calloc") {
+         if (pid() == target()) {
+                   entrysize_calloc = $n * $elem_size
+         }
+}
+
+
+probe process("/lib64/libc.so.6").function("calloc").return {
+         if (pid() == target()) {
+                   ptr = $return
+                   bt = sprint_ubacktrace()
+                   ptr2bt[ptr] = bt
+                   ptr2size[ptr] = entrysize_calloc
+                   bt_stats[bt] <<< entrysize_calloc
+       }
+}
+
+ 
+
+probe process("/lib64/libc.so.6").function("realloc") {
+         if (pid() == target()) {
+                   entrysize_realloc = $bytes
+                   oldptr_realloc = $oldmem
+         }
+}
+
+ 
+
+probe process("/lib64/libc.so.6").function("realloc").return {
+         if (pid() == target()) {
+                   if (oldptr_realloc != NULL) {
+                            bt = ptr2bt[oldptr_realloc]
+                            delete ptr2bt[oldptr_realloc]
+                            oldsize = ptr2size[oldptr_realloc]
+                            delete ptr2size[oldptr_realloc]
+                            if (bt != "") {
+                                     bt_stats[bt] <<< -oldsize
+                                    if (@sum(bt_stats[bt]) <= 0) {
+                                               delete bt_stats[bt]
+
+                                     }
+                            }
+                   }
+                   ptr = $return
+                   bt = sprint_ubacktrace()
+                   ptr2bt[ptr] = bt
+                   ptr2size[ptr] = entrysize_realloc
+                   bt_stats[bt] <<< entrysize_realloc
+         }
+}
+
+probe process("/lib64/libc.so.6").function("free") {
+        if (pid() == target()) {
+                   ptr = $mem
+                   if (ptr != NULL) {
+                            bt = ptr2bt[ptr]
+                            delete ptr2bt[ptr]
+                            bytes = ptr2size[ptr]
+                            delete ptr2size[ptr]
+                            if (bt != "") {
+                                     bt_stats[bt] <<< -bytes
+                                    if (@sum(bt_stats[bt]) <= 0) {
+                                               delete bt_stats[bt]
+                                     }
+                            }
+                   }
+         }
+}
+
+probe end {
+         printf("=============end============\n")
+         total_unfreed_bytes = 0
+         foreach (bt in bt_stats) {
+                   bt_count = @sum(bt_stats[bt])
+                   if (bt_count > 0) {
+                            total_unfreed_bytes += bt_count
+                            printf("bytes(not free yet): %d\n", bt_count)
+                            print(@hist_log(bt_stats[bt]))
+                           printf("%s\n", bt);
+                         printf("\n");
+                   }
+         }
+         printf("total_unfreed_bytes %d[~%dMB]\n", total_unfreed_bytes, total_unfreed_bytes/1024/1024)
+         delete ptr2bt
+         delete ptr2size
+         delete bt_stats
+}

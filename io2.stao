@@ -1,0 +1,60 @@
+#!/usr/bin/stap
+
+%{
+#include <linux/sched.h>
+#include <linux/fs.h>
+#include <linux/dcache.h>
+#include <linux/fdtable.h>
+%}
+
+
+function task_file_handle_d_path:string (task:long, file:long) %{
+        struct task_struct *p = (struct task_struct *)((long)STAP_ARG_task);
+        struct file *f = (struct file *)((long)STAP_ARG_file);
+        struct files_struct *files;
+        int next_fd;
+        char *page = NULL;
+        char *path = NULL;
+ 
+        rcu_read_lock();
+        files = kread(&(p->files));
+        next_fd = kread(&(files->next_fd));
+//        STAP_PRINTF("files %p, %d\n", files, next_fd);
+        if((page = (char *)__get_free_page(GFP_ATOMIC))) {
+                path= d_path(&f->f_path,  page, PAGE_SIZE);
+                if (path && !IS_ERR(path))
+                        snprintf(STAP_RETVALUE, MAXSTRINGLEN, "%s", path);
+        }
+        CATCH_DEREF_FAULT();
+        if (page)
+                free_page((unsigned long)page);
+        rcu_read_unlock();
+%}
+ 
+global reads, writes, total_io
+
+probe vfs.read.return {
+	reads[execname(),pid(),ino, task_file_handle_d_path(pid2task(pid()), $file)] += bytes_read
+}
+
+probe vfs.write.return {
+	writes[execname(),pid(),ino, task_file_handle_d_path(pid2task(pid()), $file)] += bytes_written
+}
+
+# print top 10 IO processes every 5 seconds
+
+probe timer.s(2) {
+	print("START####################\n\n")
+	foreach ([name,process,inode,paths] in writes)
+	total_io[name,process,inode,paths] += writes[name,process,inode,paths]
+	foreach ([name,process,inode,paths] in reads)
+	total_io[name,process,inode,paths] += reads[name,process,inode,paths]
+	printf ("%16s\t%8s\t%8s\t%10s\t%10s\t%8s\n", "Process", "PID", "inode", "KB Read", "KB Written", "Path")
+	foreach ([name,process,inode,paths] in total_io- limit 5)
+		printf("%16s\t%8d\t%8d\t%10d\t%10d\t%16s\n", name,process,inode,
+		reads[name,process,inode,paths]/1024, writes[name,process,inode,paths]/1024,paths)
+	delete reads
+	delete writes
+	delete total_io
+	print("\nEND###################\n\n\n")
+}
