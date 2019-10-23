@@ -54,7 +54,7 @@ END###################
 ```
 
 ## nginx_https.stap
-capture https flow when service with nginx. other service's stap script need to make a change. This is diffrent way with ssldump or tcpdump and wireshark
+capture https flow when service with nginx. other service's stap script need to make a change. This is a diffrent way with ssldump or tcpdump and wireshark
 
 **TODO**
 
