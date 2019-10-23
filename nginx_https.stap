@@ -1,0 +1,21 @@
+/*
+probe process("/usr/local/nginx/sbin/nginx").function("ngx_http_core_run_phases").call {
+	printf("%s %d\n", user_string_quoted($r->request_start), $r->request_length)
+	printf("%s %d\n", user_string_n($r->request_start, $r->header_name_end - $r->request_start), $r->header_name_end - $r->request_start)
+	printf("%s %d\n", user_string_quoted($r->header_in->start), $r->header_in->end - $r->header_in->start)
+	printf("%s\n", user_string_quoted($r->header_name_start))
+	printf("%s\n", user_string_n($r->header_name_start, 100))
+	printf("%s\n", user_string_quoted($r->header_start))
+	printf("%s\n", user_string_n($r->header_start, 100))
+	
+}
+*/
+global a = 0
+probe process("/usr/local/nginx/sbin/nginx").function("ngx_http_read_request_header").call {
+	if (a == 0) {
+		printf("%s %d\n\n\n\n", user_string_quoted($r->header_in->pos), $r->header_in->end - $r->header_in->start + 1)
+		printf("%s %d\n", user_string_n($r->header_in->pos, $r->header_in->end - $r->header_in->start + 1), $r->header_in->end - $r->header_in->start)
+	}
+	a = 1
+}
+
