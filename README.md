@@ -24,8 +24,9 @@ ngx_http_subs_match+0xa99 [nginx]
 
 ## io_static.stap
 find the process and file who makes io top 
+
 **TODO**
-Also we can change this script to trace some process's logs, if we donot kown whether some dynamic lib such as (rocketxclean uses rocketmq-cpp, librocketmq.so) logging at /root/logs/rocketmq-cpp/ silencly until making the disk usage bombs at produce environment. Make this Check as a Tool Service when you start a new program,just like standard background services's core_check.sh 、core_clear.sh、delete_logs.sh、service_check.sh and so on.  Also we can use strace, but use systemtap can make tools more quickly.
+Also we can change this script to trace some process's logs, if we donot kown whether some dynamic lib such as (rocketxclean uses rocketmq-cpp, librocketmq.so) logging at /root/logs/rocketmq-cpp/ silently until making the disk usage bombs at produce environment. Make this Check as a Tool Service when you start a new program,just like standard background services's core_check.sh 、core_clear.sh、delete_logs.sh、service_check.sh and so on.  Also we can use strace, but use systemtap can make tools more quickly.
 ```
 START####################
 
@@ -52,7 +53,8 @@ END###################
 ```
 
 ## nginx_https.stap
-capture https flow when service with nginx. This is another way diffrent with ssldump or tcpdump and wireshark
+capture https flow when service with nginx. other service's stap script need to make a change. This is diffrent way with ssldump or tcpdump and wireshark
+
 **TODO**
 1. capture ssl handshark infos
 2. coordinate with goreplay to make a mirror of https follw. Also we can change it as http2 follow
