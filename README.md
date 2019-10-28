@@ -30,6 +30,8 @@ find the process and file who makes io top
 1. Also we can change this script to trace some process's logs, if we donot kown whether some dynamic lib such as (rocketxclean uses rocketmq-cpp, librocketmq.so) logging at /root/logs/rocketmq-cpp/ silently until making the disk usage bombs at produce environment. Make this Check as a Tool Service when you start a new program,just like standard background services's core_check.sh 、core_clear.sh、delete_logs.sh、service_check.sh and so on. 
 2. change the script to trace a tmp file which is deleted instantly is created by who
 Also we can use strace, but use systemtap can make tools more quickly.
+3. why this stap cannot watch 'du -ah --max-depth=1',but iotop can
+
 ```
 START####################
 
